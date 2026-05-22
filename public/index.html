@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Viral Video দান</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-1: #7C3AED;
+            --primary-2: #9333EA;
+            --primary-3: #3B82F6;
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+            --text-sub: #CBD5E1;
+            --bg-dark: #0F172A;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --success: #10B981;
+            --danger: #EF4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
+        
+        /* Loader */
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s; }
+        .loader-icon { font-size: 40px; color: var(--primary-2); animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* App */
+        #app { display: none; flex-direction: column; height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(124, 58, 237, 0.2); position: sticky; top: 0; z-index: 100; }
+        .header-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .header-title i { background: linear-gradient(135deg, var(--primary-1), var(--primary-3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .profile-pic { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-2); }
+        .admin-btn { background: linear-gradient(135deg, var(--primary-1), var(--primary-3)); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
+        /* Tabs */
+        .tabs { display: flex; background: var(--card-bg); margin: 15px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: 0.3s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .tab.active { color: var(--text-main); background: linear-gradient(135deg, var(--primary-1), var(--primary-2)); box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4); }
+
+        /* Content */
+        .content { flex: 1; overflow-y: auto; padding: 0 15px 15px; }
+        .card { background: var(--card-bg); border-radius: 16px; padding: 15px; margin-bottom: 15px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(5px); transition: transform 0.2s; }
+        .card:active { transform: scale(0.98); }
+        .card-img { width: 80px; height: 60px; border-radius: 10px; object-fit: cover; margin-right: 15px; background: #1E293B; }
+        .card-info { flex: 1; }
+        .card-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text-sub); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        
+        /* Buttons */
+        .btn { border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; transition: 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+        .btn-unlock { background: linear-gradient(135deg, var(--primary-1), var(--primary-3)); color: white; width: 100%; }
+        .btn-unlock:disabled { background: #334155; color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
+        .btn-start { background: rgba(59, 130, 246, 0.2); color: var(--primary-3); border: 1px solid var(--primary-3); width: 100%; }
+        .btn-play { background: var(--success); color: white; width: 100%; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+        .btn-copy { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); margin-top: 5px; font-size: 10px; padding: 4px 8px; width: 100%; }
+
+        /* Admin Panel */
+        .overlay { display: none; background: rgba(0,0,0,0.8); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; justify-content: center; align-items: flex-end; }
+        .admin-panel { background: var(--bg-dark); width: 100%; max-height: 90vh; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 20px; overflow-y: auto; border-top: 2px solid var(--primary-1); }
+        .admin-header { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; color: var(--text-muted); margin-bottom: 5px; font-size: 12px; font-weight: 600; }
+        .form-group input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(124, 58, 237, 0.3); background: #1E293B; color: white; outline: none; transition: 0.3s; }
+        .form-group input:focus { border-color: var(--primary-1); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1); }
+        .form-submit { background: linear-gradient(135deg, var(--primary-1), var(--primary-2)); color: white; width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
+
+        /* Ad Watch Modal */
+        .ad-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .ad-timer-circle { width: 120px; height: 120px; border-radius: 50%; border: 5px solid var(--primary-1); display: flex; justify-content: center; align-items: center; font-size: 32px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 0 30px rgba(124, 58, 237, 0.3); position: relative; }
+        .ad-status { color: var(--text-muted); font-size: 14px; }
+        .ad-warning { color: var(--danger); font-size: 12px; margin-top: 10px; display: flex; align-items: center; gap: 5px; }
+
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <i class="fas fa-circle-notch loader-icon"></i>
+        <p style="margin-top: 15px; color: var(--text-muted); font-size: 14px;">Loading Content...</p>
+    </div>
+
+    <div id="app">
+        <div class="header">
+            <div class="header-title"><i class="fas fa-fire"></i> Viral Video দান</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button id="adminBtn" class="admin-btn" style="display:none;" onclick="openAdmin()"><i class="fas fa-cog"></i> Admin</button>
+                <img id="profilePic" class="profile-pic" src="https://via.placeholder.com/35" alt="Profile">
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('videos', this)"><i class="fas fa-play-circle"></i> Videos</div>
+            <div class="tab" onclick="switchTab('tasks', this)"><i class="fas fa-tasks"></i> Tasks</div>
+        </div>
+
+        <div class="content" id="videosContent"></div>
+        <div class="content" id="tasksContent" style="display:none;"></div>
+    </div>
+
+    <!-- Ad Watch UI -->
+    <div id="adModal" class="ad-modal">
+        <div class="ad-timer-circle" id="adTimer">10</div>
+        <div class="ad-status">Ad is playing... Please wait</div>
+        <div class="ad-warning"><i class="fas fa-exclamation-triangle"></i> Closing before 10s won't count</div>
+    </div>
+
+    <!-- Admin Panel Overlay -->
+    <div id="adminOverlay" class="overlay" onclick="closeAdmin(event)">
+        <div class="admin-panel" onclick="event.stopPropagation()">
+            <div class="admin-header">
+                <h2 style="color: white; display:flex; align-items:center; gap:10px;"><i class="fas fa-user-shield"></i> Admin Panel</h2>
+                <button class="btn btn-start" onclick="closeAdmin()" style="width:auto;"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div style="margin-bottom: 25px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                <h3 style="color: var(--primary-3); margin-bottom: 15px; font-size: 14px;"><i class="fas fa-video"></i> Add New Video</h3>
+                <div class="form-group"><label>Image Link</label><input type="text" id="vImg" placeholder="https://..."></div>
+                <div class="form-group"><label>Title</label><input type="text" id="vTitle" placeholder="Video Title"></div>
+                <div class="form-group"><label>Ads for Unlock</label><input type="number" id="vAds" value="5" min="1"></div>
+                <button class="form-submit" onclick="addVideo()"><i class="fas fa-plus"></i> Add Video</button>
+            </div>
+
+            <div style="margin-bottom: 25px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                <h3 style="color: var(--primary-3); margin-bottom: 15px; font-size: 14px;"><i class="fas fa-list-check"></i> Add New Task</h3>
+                <div class="form-group"><label>Image Link</label><input type="text" id="tImg" placeholder="https://..."></div>
+                <div class="form-group"><label>Title</label><input type="text" id="tTitle" placeholder="Task Title"></div>
+                <div class="form-group"><label>Redirect Link</label><input type="text" id="tLink" placeholder="https://..."></div>
+                <button class="form-submit" onclick="addTask()"><i class="fas fa-plus"></i> Add Task</button>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                <h3 style="color: var(--primary-3); margin-bottom: 15px; font-size: 14px;"><i class="fas fa-link"></i> Smart Link (Post-Unlock Redirect)</h3>
+                <div class="form-group"><label>Monetag/Smart Link URL</label><input type="text" id="sLink" placeholder="https://..."></div>
+                <button class="form-submit" onclick="addSmartLink()" style="background: linear-gradient(135deg, var(--success), #059669);"><i class="fas fa-save"></i> Save Smart Link</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monetag In-App Script -->
+    <script src="//monetag.com/apps/js/v1/ads.js?zone_id=10063269" async></script>
+    
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.setHeaderColor("#0F172A");
+        
+        const userId = tg.initDataUnsafe?.user?.id || "guest_" + Math.floor(Math.random() * 1000);
+        const userPhoto = tg.initDataUnsafe?.user?.photo_url || "https://ui-avatars.com/api/?background=7C3AED&color=fff&name=User";
+        
+        document.getElementById('profilePic').src = userPhoto;
+
+        let userAdsWatched = {}; // { videoId: count }
+        let smartLinkUrl = ""; 
+        let adTimerInterval = null;
+        let adStartTime = 0;
+        let isAdPlaying = false;
+        let currentProcessingVideoId = null;
+
+        window.onload = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const startAppParam = urlParams.get('startapp');
+            
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            
+            if(config.admin_ids.includes(userId)) {
+                document.getElementById('adminBtn').style.display = 'flex';
+            }
+
+            await loadSmartLink();
+            await loadData();
+
+            if(startAppParam) {
+                // Deep link logic (Directly open video if unlocked)
+                handleDeepLink(startAppParam);
+            }
+
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('app').style.display = 'flex';
+                }, 500);
+            }, 1500);
+        };
+
+        async function loadSmartLink() {
+            const res = await fetch('/api/smartlink');
+            const data = await res.json();
+            smartLinkUrl = data.url;
+            const sInput = document.getElementById('sLink');
+            if(sInput) sInput.value = smartLinkUrl;
+        }
+
+        async function loadData() {
+            const vRes = await fetch('/api/videos');
+            const videos = await vRes.json();
+            renderVideos(videos);
+
+            const tRes = await fetch('/api/tasks');
+            const tasks = await tRes.json();
+            renderTasks(tasks);
+        }
+
+        function renderVideos(videos) {
+            const container = document.getElementById('videosContent');
+            container.innerHTML = '';
+            if(videos.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:var(--text-muted); margin-top:50px;"><i class="fas fa-film" style="font-size:40px; margin-bottom:10px;"></i><br>No videos available</div>';
+                return;
+            }
+            videos.forEach(v => {
+                const watched = userAdsWatched[v.id] || 0;
+                const isUnlocked = watched >= v.ads_required;
+                
+                container.innerHTML += `
+                    <div class="card">
+                        <img src="${v.image}" class="card-img" alt="" onerror="this.src='https://via.placeholder.com/80x60/1E293B/94A3B8?text=Video'">
+                        <div class="card-info">
+                            <div class="card-title">${v.title}</div>
+                            ${isUnlocked ? 
+                                `<button class="btn btn-play" onclick="playVideo('${v.id}')"><i class="fas fa-play"></i> Watch Now</button>` :
+                                `<button class="btn btn-unlock" id="unlockBtn_${v.id}" onclick="initiateUnlock('${v.id}', ${v.ads_required})"><i class="fas fa-lock-open"></i> Unlock ${watched}/${v.ads_required} ads</button>`
+                            }
+                            <button class="btn btn-copy" onclick="copyLink('${v.id}')"><i class="fas fa-copy"></i> Copy Link</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderTasks(tasks) {
+            const container = document.getElementById('tasksContent');
+            container.innerHTML = '';
+            if(tasks.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:var(--text-muted); margin-top:50px;"><i class="fas fa-clipboard-list" style="font-size:40px; margin-bottom:10px;"></i><br>No tasks available</div>';
+                return;
+            }
+            tasks.forEach(t => {
+                container.innerHTML += `
+                    <div class="card">
+                        <img src="${t.image}" class="card-img" alt="" onerror="this.src='https://via.placeholder.com/80x60/1E293B/94A3B8?text=Task'">
+                        <div class="card-info">
+                            <div class="card-title">${t.title}</div>
+                            <a href="${t.redirect_link}" target="_blank" class="btn btn-start"><i class="fas fa-external-link-alt"></i> Start Task</a>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function initiateUnlock(videoId, requiredAds) {
+            currentProcessingVideoId = videoId;
+            showAdModal();
+            
+            // Trigger Monetag Ad
+            try {
+                show_10063269({
+                    type: 'inApp',
+                    inAppSettings: { frequency: 1, capping: 0.1, interval: 30, timeout: 5, everyPage: false }
+                });
+            } catch(e) { console.error("Monetag Error:", e); }
+
+            // Start 10s timer validation
+            adStartTime = Date.now();
+            let timeLeft = 10;
+            const timerEl = document.getElementById('adTimer');
+            timerEl.innerText = timeLeft;
+
+            adTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - adStartTime) / 1000);
+                timeLeft = 10 - elapsed;
+                
+                if(timeLeft > 0) {
+                    timerEl.innerText = timeLeft;
+                } else {
+                    clearInterval(adTimerInterval);
+                    timerEl.innerText = "✓";
+                    document.querySelector('.ad-status').innerText = "Ad Watched Successfully!";
+                    document.querySelector('.ad-warning').style.display = 'none';
+                    
+                    // Count Ad
+                    if(!userAdsWatched[videoId]) userAdsWatched[videoId] = 0;
+                    userAdsWatched[videoId]++;
+                    
+                    setTimeout(() => {
+                        hideAdModal();
+                        loadData(); // Refresh UI
+                    }, 1500);
+                }
+            }, 1000);
+        }
+
+        function showAdModal() {
+            isAdPlaying = true;
+            document.querySelector('.ad-status').innerText = "Ad is playing... Please wait";
+            document.querySelector('.ad-warning').style.display = 'flex';
+            document.getElementById('adModal').style.display = 'flex';
+        }
+
+        function hideAdModal() {
+            isAdPlaying = false;
+            clearInterval(adTimerInterval);
+            document.getElementById('adModal').style.display = 'none';
+        }
+
+        function playVideo(videoId) {
+            if(smartLinkUrl) {
+                window.location.href = smartLinkUrl; // Redirect to smart link first
+                setTimeout(() => {
+                    window.open(`https://t.me/KlyntixEliteRobot/video?startapp=${videoId}`, '_blank'); // Then open video link
+                }, 1000);
+            } else {
+                window.open(`https://t.me/KlyntixEliteRobot/video?startapp=${videoId}`, '_blank');
+            }
+        }
+
+        function handleDeepLink(videoId) {
+            const watched = userAdsWatched[videoId] || 0;
+            // Check if unlocked (Note: Deep link unlock check would ideally need backend verification, simplified for frontend state)
+            if(watched > 0) {
+                playVideo(videoId);
+            } else {
+                tg.showAlert("Please unlock this video first!");
+            }
+        }
+
+        function copyLink(id) {
+            const link = `https://t.me/KlyntixEliteRobot/video?startapp=${id}`;
+            navigator.clipboard.writeText(link).then(() => {
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert("Link Copied!");
+            });
+        }
+
+        function switchTab(tab, element) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+            
+            if(tab === 'videos') {
+                document.getElementById('videosContent').style.display = 'block';
+                document.getElementById('tasksContent').style.display = 'none';
+            } else {
+                document.getElementById('videosContent').style.display = 'none';
+                document.getElementById('tasksContent').style.display = 'block';
+            }
+        }
+
+        function openAdmin() { document.getElementById('adminOverlay').style.display = 'flex'; }
+        function closeAdmin(e) { if(!e || e.target === document.getElementById('adminOverlay')) document.getElementById('adminOverlay').style.display = 'none'; }
+
+        async function addVideo() {
+            const payload = { image: document.getElementById('vImg').value, title: document.getElementById('vTitle').value, ads_required: parseInt(document.getElementById('vAds').value) };
+            if(!payload.title) return tg.showAlert("Title is required!");
+            await fetch('/api/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            tg.HapticFeedback.notificationOccurred('success');
+            await loadData();
+            document.getElementById('vImg').value = ""; document.getElementById('vTitle').value = "";
+        }
+
+        async function addTask() {
+            const payload = { image: document.getElementById('tImg').value, title: document.getElementById('tTitle').value, redirect_link: document.getElementById('tLink').value };
+            if(!payload.title || !payload.redirect_link) return tg.showAlert("Title and Link are required!");
+            await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            tg.HapticFeedback.notificationOccurred('success');
+            await loadData();
+            document.getElementById('tImg').value = ""; document.getElementById('tTitle').value = ""; document.getElementById('tLink').value = "";
+        }
+
+        async function addSmartLink() {
+            const url = document.getElementById('sLink').value;
+            if(!url) return;
+            await fetch('/api/smartlink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+            await loadSmartLink();
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert("Smart Link Saved!");
+        }
+
+        // Prevent closing app while ad is playing
+        window.addEventListener('beforeunload', (e) => {
+            if(isAdPlaying) { e.preventDefault(); e.returnValue = ''; }
+        });
+    </script>
+</body>
+</html>
