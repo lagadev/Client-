@@ -18,7 +18,7 @@ app.add_middleware(
 DB_NAME = "database.db"
 
 # Admin IDs
-ADMIN_IDS = [123456789] # আপনার টেলিগ্রাম ইউজার আইডি দিয়ে এটি পরিবর্তন করুন
+ADMIN_IDS = [7605281774] # আপনার টেলিগ্রাম ইউজার আইডি দিয়ে এটি পরিবর্তন করুন
 
 class VideoSchema(BaseModel):
     image: str
